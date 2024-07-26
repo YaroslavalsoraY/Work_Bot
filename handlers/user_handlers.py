@@ -3,10 +3,12 @@ from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from lexicon.lexicon import LEXICON_RU
 from keyboards.keyboard import (start_keyboard,
-                                vacancy_keyboard, after_keyboard)
+                                vacancy_keyboard, after_keyboard,
+                                create_pagination_kb)
 from services.work import Find_vacancies, get_vacancies
 from aiogram.fsm.context import FSMContext
-import time
+from database.database import user_dict_template, users_db
+from copy import deepcopy
 
 router = Router()
 
@@ -36,19 +38,71 @@ async def pressed_no(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == 'yes')
 async def quantity_chosen(callback: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
-    for i in get_vacancies(user_data['chosen_vacancy'], 20):
-        time.sleep(1.5)
-        await callback.message.answer(text=i)
-    state.clear()
-    await callback.message.answer(
-        text=LEXICON_RU['question_aft'],
-        reply_markup=after_keyboard
+    users_db[callback.from_user.id]['variants'] =\
+        get_vacancies(user_data['chosen_vacancy'])
+    if len(users_db[callback.from_user.id]['variants']) > 1:
+        await callback.message.answer(
+            text=users_db[callback.from_user.id]['variants']
+            [users_db[callback.from_user.id]['index']],
+            reply_markup=create_pagination_kb(
+                'backward',
+                f'{users_db[callback.from_user.id]["index"] + 1}/'
+                f'{len(users_db[callback.from_user.id]["variants"])}',
+                'forward')
+            )
+    else:
+        await callback.message.answer(
+            text=users_db[callback.from_user.id]['variants'][0],
+            reply_markup=after_keyboard
+            )
+
+
+@router.callback_query(F.data == 'forward')
+async def process_forward_press(callback: CallbackQuery):
+    if users_db[callback.from_user.id]["index"] + 1 <\
+     len(users_db[callback.from_user.id]["variants"]):
+        users_db[callback.from_user.id]["index"] += 1
+        await callback.message.edit_text(
+            text=users_db[callback.from_user.id]['variants']
+            [users_db[callback.from_user.id]['index']],
+            reply_markup=create_pagination_kb(
+                'backward',
+                f'{users_db[callback.from_user.id]["index"] + 1}/'
+                f'{len(users_db[callback.from_user.id]["variants"])}',
+                'forward')
+        )
+    else:
+        users_db[callback.from_user.id]["index"] += 1
+        await callback.message.edit_text(
+            text=LEXICON_RU['question_aft'],
+            reply_markup=create_pagination_kb(
+                'backward',
+                'button_aft'
+            )
         )
 
 
-@router.callback_query(F.data == 'start')
+@router.callback_query(F.data == 'backward')
+async def process_backward_press(callback: CallbackQuery):
+    if users_db[callback.from_user.id]["index"] > 0:
+        users_db[callback.from_user.id]["index"] -= 1
+        await callback.message.edit_text(
+            text=users_db[callback.from_user.id]['variants']
+            [users_db[callback.from_user.id]['index']],
+            reply_markup=create_pagination_kb(
+                'backward',
+                f'{users_db[callback.from_user.id]["index"] + 1}/'
+                f'{len(users_db[callback.from_user.id]["variants"])}',
+                'forward')
+        )
+    else:
+        await callback.answer()
+
+
+@router.callback_query(F.data == 'button_aft')
 async def process_start_command_again(callback: CallbackQuery):
     photo = FSInputFile("lexicon\\photo.png")
+    users_db[callback.from_user.id] = deepcopy(user_dict_template)
     await callback.message.answer_photo(photo,
                                         caption=LEXICON_RU['/start2'],
                                         reply_markup=start_keyboard)
@@ -57,10 +111,8 @@ async def process_start_command_again(callback: CallbackQuery):
 @router.message(CommandStart())
 async def process_start_command(message: Message):
     photo = FSInputFile("lexicon\\photo.png")
+    if message.from_user.id not in users_db:
+        users_db[message.from_user.id] = deepcopy(user_dict_template)
     await message.answer_photo(photo,
                                caption=LEXICON_RU['/start'],
                                reply_markup=start_keyboard)
-
-# @router.callback_query(F.data == 'start_button_2')
-# async def pressed_2(callback: CallbackQuery):
-#     await callback.answer('2', show_alert=True)

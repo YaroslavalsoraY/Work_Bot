@@ -2,12 +2,12 @@ import requests
 from aiogram.fsm.state import StatesGroup, State
 
 
-def get_vacancies(keyword: str, quantity: int):
+def get_vacancies(keyword: str):
     url = 'https://api.hh.ru/vacancies'
     params = {
         'text': keyword,
         'area': 1,
-        'per_page': quantity
+        'per_page': 10
     }
     headers = {
         'User-Agent': 'Yandex'
@@ -26,7 +26,10 @@ def get_vacancies(keyword: str, quantity: int):
                 vacancy_title = vacancy.get("name")
                 vacancy_url = vacancy.get("alternate_url")
                 company_name = vacancy.get("employer", {}).get("name")
-                variants.append(f'ID: {vacancy_id}\nНазвание: {vacancy_title}\nКомпания: {company_name}\nСсылка: {vacancy_url}\n\n')
+                variants.append(f'ID: {vacancy_id}\n'
+                                f'Название: {vacancy_title}\n'
+                                f'Компания: {company_name}\n'
+                                f'Ссылка: {vacancy_url}\n\n')
             return variants
         else:
             return ['К сожалению, не нашлось вакансий']
