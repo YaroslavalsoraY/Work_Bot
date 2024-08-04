@@ -37,6 +37,6 @@ def get_vacancies(keyword: str):
         return ['Не удалось установить соединение']
 
 
-class Find_vacancies(StatesGroup):
+class FSM_Vacancies(StatesGroup):
     choosing_vacancy = State()
-    choosing_quantity = State()
+    vacancy_chosen = State()

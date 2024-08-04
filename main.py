@@ -4,6 +4,7 @@ import asyncio
 from config_data.config import load_config, Config
 from aiogram import Bot, Dispatcher
 from handlers import user_handlers, other_handlers
+from aiogram.fsm.storage.redis import RedisStorage, Redis
 
 
 logger = logging.getLogger(__name__)
@@ -19,10 +20,12 @@ async def main() -> None:
 
     config: Config = load_config()
 
-    bot = Bot(token=config.tg_bot.token,
-              parse_mode='HTML')
+    bot = Bot(token=config.tg_bot.token)
 
-    dp = Dispatcher()
+    redis = Redis(host='localhost')
+    storage = RedisStorage(redis=redis)
+
+    dp = Dispatcher(storage=storage)
 
     dp.include_router(user_handlers.router)
     dp.include_router(other_handlers.router)
